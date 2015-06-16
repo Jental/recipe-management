@@ -28,16 +28,25 @@ for catname in next(os.walk(ingridients_dir))[1]:
           desc  = jQuery('p.b-instrument-description').html()
           path  = os.path.join("wiki/ingredienty/", catname, file)
 
-          print("- id   : ", id)
-          print("- title: ", title)
-          print("- image: ", img)
-          print("- desc : ", desc)
-          print("- path : ", path)
+          if not id.startswith('page') and title != "":
+            print("- id       : ", id)
+            print("- title    : ", title)
+            print("- image    : ", img)
+            print("- desc     : ", desc)
+            print("- path     : ", path)
+            print("- category : ", catname)
 
-          found = collection.find_one({"id": id})
-          if found == None:
-            collection.insert_one({'id': id, 'title': title, 'image': img, 'description': desc, 'path': path})
-          else:
-            print('! found: ', found)
+            found = collection.find_one({"id": id})
+            if found == None:
+              collection.insert_one({
+                'id': id,
+                'title': title,
+                'image': img,
+                'description': desc,
+                'path': path,
+                'category': catname
+              })
+            else:
+              print('! found: ', found)
     except:
       pass
