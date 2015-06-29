@@ -7,6 +7,7 @@ import gridfs
 import mimetypes
 import requests
 from pymongo import MongoClient
+import itertools
 
 if len(sys.argv) < 2:
   print("Error: Specify input file")
@@ -68,30 +69,58 @@ def query_yes_no(question, default="yes"):
             sys.stdout.write("Please respond with 'yes' or 'no' "
                              "(or 'y' or 'n').\n")
 
+def process_images(jsobj):
+  if 'images' in jsobj:
+    for img in jsobj['images']:
+      if isinstance(img, str):
+        imgid = add_image(img)
+        yield {
+          'src' : img,
+          'id' : imgid
+        }
+      elif 'src' in img:
+        imgurl = img['src']
+        imgid = add_image(imgurl)
+        img['id'] = imgid
+        yield img
+
+def process_image(jsobj):
+  if 'image' in jsobj and 'src' in jsobj['image']:
+    imgurl = jsobj['image']['src']
+    imgid = add_image(imgurl)
+    yield {
+      'src' : imgurl,
+      'id' : imgid
+    }
+
+def process_instructions(jsobj):
+  if 'instructions' in jsobj:
+    for (i, instr) in enumerate(jsobj['instructions']):
+      if isinstance(instr, str):
+        yield {
+          'id' : i,
+          'text' : instr
+        }
+      else:
+        iid = instr['id'] if 'id' in instr else i
+        instr['id'] = iid
+
+        images = process_images(instr)
+        images2 = process_image(jsobj)
+        instr['images'] = list(itertools.chain(images, images2))
+
+        yield instr
+
 with open(in_file, 'r') as fh:
   jstext = fh.read()
   jsobj = json.loads(jstext)
 
-  if 'image' in jsobj and 'src' in jsobj['image']:
-    imgurl = jsobj['image']['src']
-    imgid = add_image(imgurl)
-    jsobj['image']['id'] = imgid
+  images = process_images(jsobj)
+  images2 = process_image(jsobj)
+  jsobj['images'] = list(itertools.chain(images, images2))
 
-  if 'images' in jsobj:
-    for img in jsobj['images']:
-      if 'src' in img:
-        imgurl = img['src']
-        imgid = add_image(imgurl)
-        img['id'] = imgid
-
-  if 'instructions' in jsobj:
-    for instr in jsobj['instructions']:
-      if 'images' in instr:
-        for img in instr['images']:
-          if 'src' in img:
-            imgurl = img['src']
-            imgid = add_image(imgurl)
-            img['id'] = imgid
+  instructions = process_instructions(jsobj)
+  jsobj['instructions'] = list(instructions)
 
   if 'id' in jsobj:
     rid = jsobj['id']
