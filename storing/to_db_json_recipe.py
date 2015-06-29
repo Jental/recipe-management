@@ -8,6 +8,7 @@ import mimetypes
 import requests
 from pymongo import MongoClient
 import itertools
+import re
 
 if len(sys.argv) < 2:
   print("Error: Specify input file")
@@ -22,6 +23,7 @@ client = MongoClient('localhost', 27017)
 db = client.eda
 grid_fs = gridfs.GridFS(db)
 collection = db.recipes
+ingrcollection = db.ingredients
 
 def add_image(image_url):
   gridfs_filename = image_url[image_url.rfind("/")+1:]
@@ -108,8 +110,32 @@ def process_instructions(jsobj):
         images = process_images(instr)
         images2 = process_image(jsobj)
         instr['images'] = list(itertools.chain(images, images2))
-
+        
         yield instr
+
+def process_ingredients(jsobj):
+  if 'ingredients' in jsobj:
+    for ingr in jsobj['ingredients']:
+      iname = ingr['name']
+      if 'id' in ingr:
+        yield ingr
+      else:
+        regx = re.compile(iname, re.IGNORECASE)
+        found = ingrcollection.find({'title' : regx})
+        if found.count() == 0:
+          raise ValueError("Ingredient not found: \"", iname, "\". Please, specify id manually.")
+
+        print("Select ingredient num:")
+        foundl = list(found)
+        for (i, fingr) in enumerate(foundl):
+          print(i, ":", fingr['title'])
+
+        choice = int(input().lower())
+        print("Selected", foundl[choice]['title'])
+        ingr['id'] = foundl[choice]['id']
+
+        yield ingr
+
 
 with open(in_file, 'r') as fh:
   jstext = fh.read()
@@ -121,6 +147,9 @@ with open(in_file, 'r') as fh:
 
   instructions = process_instructions(jsobj)
   jsobj['instructions'] = list(instructions)
+
+  ingredients = process_ingredients(jsobj)
+  jsobj['ingredients'] = list(ingredients)
 
   if 'id' in jsobj:
     rid = jsobj['id']

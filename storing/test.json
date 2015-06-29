@@ -26,8 +26,7 @@
     "ingredients" : [ 
         {
             "amount" : "250 г",
-            "name" : "Мука",
-            "id" : "13458"
+            "name" : "Мука"
         }, 
         {
             "amount" : "100 г",
