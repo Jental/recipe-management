@@ -125,7 +125,7 @@ def process_ingredients(jsobj):
         if found.count() == 0:
           raise ValueError("Ingredient not found: \"", iname, "\". Please, specify id manually.")
 
-        print("Select ingredient num:")
+        print("Select ingredient [", iname ,"] num:")
         foundl = list(found)
         for (i, fingr) in enumerate(foundl):
           print(i, ":", fingr['title'])
@@ -136,6 +136,15 @@ def process_ingredients(jsobj):
 
         yield ingr
 
+def process_notes(jsobj):
+  if 'notes' in jsobj:
+    for note in jsobj['notes']:
+      if isinstance(note, str):
+        yield {
+          'text' : note
+        }
+      else:
+        yield note
 
 with open(in_file, 'r') as fh:
   jstext = fh.read()
@@ -150,6 +159,9 @@ with open(in_file, 'r') as fh:
 
   ingredients = process_ingredients(jsobj)
   jsobj['ingredients'] = list(ingredients)
+
+  notes = process_notes(jsobj)
+  jsobj['notes'] = list(notes)
 
   if 'id' in jsobj:
     rid = jsobj['id']
