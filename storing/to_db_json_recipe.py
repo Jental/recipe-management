@@ -120,8 +120,14 @@ def process_ingredients(jsobj):
       if 'id' in ingr:
         yield ingr
       else:
-        regx = re.compile(iname, re.IGNORECASE)
-        found = ingrcollection.find({'title' : regx})
+        parts = re.split('\W+', iname)
+        
+        patterns = [{'title' : re.compile(part, re.IGNORECASE)} for part in parts if part.strip() != '']
+        found = ingrcollection.find({'$and' : patterns})
+
+        if found.count() == 0:
+          found = ingrcollection.find({'$or' : patterns})
+        
         if found.count() == 0:
           raise ValueError("Ingredient not found: \"", iname, "\". Please, specify id manually.")
 
