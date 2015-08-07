@@ -4,6 +4,10 @@ from ebooklib import epub
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 import re
+import gridfs
+import mimetypes
+import requests
+import sys
 
 def process_input(step, ingredients):
   links = [
@@ -14,7 +18,10 @@ def process_input(step, ingredients):
 
 def process_step(step, ingredients):
   if not 'richtext' in step:
-    return step['text']
+    if 'text' in step:
+      return step['text']
+    else:
+      return ''
 
   links = process_input(step, ingredients)
 
@@ -27,11 +34,66 @@ def process_step(step, ingredients):
   ]
   return ''.join(parts)
 
+def process_step_image(imageData, book):
+  iid = None
+  if isinstance(imageData, str):
+    if '--process-links' in sys.argv:
+      icontentType = mimetypes.guess_type(imageData)[0]
+      ifilename = imageData[imageData.rfind("/")+1:]
+      iid = ifilename
+      icontent = requests.get(imageData, stream=True).raw.read()
+  else:
+    imageId = imageData['id']
+    imageObj = grid_fs.get(imageId)
+
+    ifilename = imageObj.filename
+    icontentType =  imageObj.contentType
+    iid = str(imageObj._id)
+    icontent = imageObj.read()
+
+  if iid != None:
+    ei = epub.EpubImage()
+    ei.id = iid
+    ei.file_name = ifilename
+    ei.media_type = 'image/jpeg' if (icontentType == None) else icontentType
+    ei.content = icontent
+
+    print(ifilename, icontentType)
+    print(ei)
+
+    return (ei, '<img src="{src}" />'.format(src = ifilename))
+  else:
+    print(imageData)
+    print(None)
+
+    return (None, '')
+
+def process_step_images(step, book):
+  parts = []
+  
+  if 'images' in step:
+    for imageData in step['images']:
+      (obj, part) = process_step_image(imageData, book)
+      if obj != None:
+        parts.append(part)
+        book.add_item(obj)
+
+  if 'image' in step:
+    (obj, part) = process_step_image(step['image'], book)
+    if obj != None:
+      parts.append(part)
+      book.add_item(obj)
+
+  return parts
+
+
 # docid = '557e8f02335e015c8a6f1e2c'
-docid = '55a389a9335e011ba201ab45'
+# docid = '55a389a9335e011ba201ab45'
+docid = '559e1b72335e015f6552fbc2'
 client = MongoClient('localhost', 27017)
 db = client.eda
 collection = db.recipes
+grid_fs = gridfs.GridFS(db)
 document = collection.find_one({"_id": ObjectId(docid)})
 if document != None:
   book = epub.EpubBook()
@@ -68,10 +130,12 @@ if document != None:
   with open('templates/epub/steps.tpl', 'r') as template_file, open('templates/epub/step.tpl', 'r') as template_file_1:
     cSteps_template = template_file.read()
     cStep_template = template_file_1.read()
+    
     cStep_parts = [
       cStep_template.format(
         id   = step['id'],
-        text = process_step(step, document['ingredients']))
+        text = process_step(step, document['ingredients']),
+        images = '\n'.join(process_step_images(step, book)))
       for step in document['instructions']
     ]
     cSteps.content = cSteps_template.format(
@@ -85,7 +149,14 @@ if document != None:
   book.add_item(epub.EpubNcx())
   book.add_item(epub.EpubNav())
 
-  style = 'BODY {color: white;}'
+  style = """
+body {
+  color: white;
+}
+.step {
+  page-break-before: always;
+}
+"""
   nav_css = epub.EpubItem(
     uid="style_nav",
     file_name="style/nav.css",
