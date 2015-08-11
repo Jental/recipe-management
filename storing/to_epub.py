@@ -9,6 +9,15 @@ import mimetypes
 import requests
 import sys
 
+# docid = '557e8f02335e015c8a6f1e2c'
+# docid = '55a389a9335e011ba201ab45'
+# docid = '559e1b72335e015f6552fbc2'
+# docid = '55c85404335e014d115529d6'
+if (len(sys.argv) > 1) and not sys.argv[len(sys.argv) - 1].startswith("--"):
+  docid = sys.argv[len(sys.argv) - 1]
+else:
+  docid = '55a389a9335e011ba201ab45'
+
 def process_input(step, ingredients):
   links = [
     '<a href="ingredients.xhtml#ingredient_{id}">'.format(id = ingredients[int(inel['ingredient'])]['id']) if 'ingredient' in inel else '<a href="steps.xhtml#step_{id}">'.format(id = inel['output']) if 'output' in inel else '<a href="steps.xhtml#">'
@@ -38,11 +47,15 @@ def process_step_image(imageData, book):
   iid = None
   if isinstance(imageData, str):
     if '--process-links' in sys.argv:
+      print("image: downloading:", imageData)
+      
       icontentType = mimetypes.guess_type(imageData)[0]
       ifilename = imageData[imageData.rfind("/")+1:]
       iid = ifilename
       icontent = requests.get(imageData, stream=True).raw.read()
   else:
+    print("image: from db: id: ", imageData['id'])
+    
     imageId = imageData['id']
     imageObj = grid_fs.get(imageId)
 
@@ -58,13 +71,12 @@ def process_step_image(imageData, book):
     ei.media_type = 'image/jpeg' if (icontentType == None) else icontentType
     ei.content = icontent
 
-    print(ifilename, icontentType)
-    print(ei)
+    print("image: filename:", ifilename)
+    print("image: content-type:", icontentType)
 
     return (ei, '<img src="{src}" />'.format(src = ifilename))
   else:
-    print(imageData)
-    print(None)
+    print("image: unprocessed:", imageData)
 
     return (None, '')
 
@@ -86,10 +98,6 @@ def process_step_images(step, book):
 
   return parts
 
-
-# docid = '557e8f02335e015c8a6f1e2c'
-# docid = '55a389a9335e011ba201ab45'
-docid = '559e1b72335e015f6552fbc2'
 client = MongoClient('localhost', 27017)
 db = client.eda
 collection = db.recipes
@@ -100,6 +108,8 @@ if document != None:
   book.set_identifier(docid)
   book.set_title(document['title'])
   book.set_language('en')
+
+  print("title:", document['title'])
 
   cIntro = epub.EpubHtml(title='Intro', file_name='intro.xhtml', lang='en')
   with open('templates/epub/intro.tpl', 'r') as template_file:
