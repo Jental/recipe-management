@@ -3,3 +3,6 @@ recipe_png_to_webpage/out
 recipe_png_to_webpage/out/*
 thoughts
 format/thoughts
+eda_ru/eda.ru/*
+storing/in.json
+storing/samples/in.json
