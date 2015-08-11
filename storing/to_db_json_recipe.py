@@ -24,6 +24,7 @@ db = client.eda
 grid_fs = gridfs.GridFS(db)
 collection = db.recipes
 ingrcollection = db.ingredients
+defcollection = db.default_values
 
 def add_image(image_url):
   gridfs_filename = image_url[image_url.rfind("/")+1:]
@@ -131,12 +132,33 @@ def process_ingredients(jsobj):
         if found.count() == 0:
           raise ValueError("Ingredient not found: \"", iname, "\". Please, specify id manually.")
 
-        print("Select ingredient [", iname ,"] num:")
+        deffound = defcollection.find_one({
+          'type': 'ingredient',
+          'key' : iname
+        })
+
         foundl = list(found)
-        for (i, fingr) in enumerate(foundl):
+        foundle = enumerate(foundl)
+        if deffound != None:
+          defaultIdx = next(i for (i, v) in enumerate(foundl) if v['id'] == deffound['value'])
+          print("Select ingredient [", iname ,"] num [default=", defaultIdx ,"]:")
+        else:
+          defaultIdx = None
+          print("Select ingredient [", iname ,"] num:")
+        
+        for (i, fingr) in foundle:
           print(i, ":", fingr['title'])
 
-        choice = int(input().lower())
+        if deffound != None:
+          print("Select ingredient [", iname ,"] num [default=", defaultIdx ,"]:")
+        else:
+          print("Select ingredient [", iname ,"] num:")
+
+        choiseStr = input().lower().strip()
+        if choiseStr == "" and defaultIdx != None:
+          choice = defaultIdx
+        else:
+          choice = int(choiseStr)
         print("Selected", foundl[choice]['title'])
         ingr['id'] = foundl[choice]['id']
 
