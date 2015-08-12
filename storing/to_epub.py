@@ -8,6 +8,7 @@ import gridfs
 import mimetypes
 import requests
 import sys
+import unidecode
 
 # docid = '557e8f02335e015c8a6f1e2c'
 # docid = '55a389a9335e011ba201ab45'
@@ -185,6 +186,8 @@ body {
 
   book.spine = ['nav', cIntro, cIngredients, cSteps]
 
-  epub.write_epub('test.epub', book, {})
+  filename = re.sub(r'[\W]+', '', unidecode.unidecode(document['title']).replace(' ', '_')).lower() + '.epub'
+  epub.write_epub(filename, book, {})
+  print("Wrote", filename)
 else:
   print("Recipe with _id={0} not found".format(docid))
