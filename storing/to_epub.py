@@ -137,17 +137,26 @@ if document != None:
   book.add_item(cIngredients)
 
   cSteps = epub.EpubHtml(title='Instructions', file_name='steps.xhtml', lang='en')
-  with open('templates/epub/steps.tpl', 'r') as template_file, open('templates/epub/step.tpl', 'r') as template_file_1:
+  with open('templates/epub/steps.tpl', 'r') as template_file, open('templates/epub/step.tpl', 'r') as template_file_1, open('templates/epub/step_noimages.tpl', 'r') as template_file_2:
     cSteps_template = template_file.read()
-    cStep_template = template_file_1.read()
-    
-    cStep_parts = [
-      cStep_template.format(
-        id   = step['id'],
-        text = process_step(step, document['ingredients']),
-        images = '\n'.join(process_step_images(step, book)))
+
+    if '--no-images' in sys.argv:
+      cStep_template = template_file_2.read()
+      cStep_parts = [
+        cStep_template.format(
+          id   = step['id'],
+          text = process_step(step, document['ingredients']))
       for step in document['instructions']
-    ]
+      ]
+    else:
+      cStep_template = template_file_1.read()
+      cStep_parts = [
+        cStep_template.format(
+          id   = step['id'],
+          text = process_step(step, document['ingredients']),
+          images = '\n'.join(process_step_images(step, book)))
+      for step in document['instructions']
+      ]
     cSteps.content = cSteps_template.format(
       steps  = '\n'.join(cStep_parts))
   book.add_item(cSteps)
