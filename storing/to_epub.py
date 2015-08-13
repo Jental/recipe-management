@@ -9,15 +9,26 @@ import mimetypes
 import requests
 import sys
 import unidecode
+import argparse
+
+client = MongoClient('localhost', 27017)
+db = client.eda
+collection = db.recipes
+grid_fs = gridfs.GridFS(db)
+
+argparser = argparse.ArgumentParser()
+argparser.add_argument('recipeId', help='MongoDB stored recipe id (without ObjectId wrapper).')
+argparser.add_argument('--process-links', help='Download images stored as links.', action="store_true")
+argparser.add_argument('--no-images', help='Images will not be included in the final book. Instructions will be placed on a single page.', action="store_true")
+argparser.add_argument('--out', help='Filename of an output book')
+args = argparser.parse_args()
+print('args:', args)
 
 # docid = '557e8f02335e015c8a6f1e2c'
 # docid = '55a389a9335e011ba201ab45'
 # docid = '559e1b72335e015f6552fbc2'
 # docid = '55c85404335e014d115529d6'
-if (len(sys.argv) > 1) and not sys.argv[len(sys.argv) - 1].startswith("--"):
-  docid = sys.argv[len(sys.argv) - 1]
-else:
-  docid = '55a389a9335e011ba201ab45'
+docid = args.recipeId
 
 def process_input(step, ingredients):
   links = [
@@ -47,7 +58,7 @@ def process_step(step, ingredients):
 def process_step_image(imageData, book):
   iid = None
   if isinstance(imageData, str):
-    if '--process-links' in sys.argv:
+    if args.process_links:
       print("image: downloading:", imageData)
       
       icontentType = mimetypes.guess_type(imageData)[0]
@@ -99,10 +110,6 @@ def process_step_images(step, book):
 
   return parts
 
-client = MongoClient('localhost', 27017)
-db = client.eda
-collection = db.recipes
-grid_fs = gridfs.GridFS(db)
 document = collection.find_one({"_id": ObjectId(docid)})
 if document != None:
   book = epub.EpubBook()
@@ -141,7 +148,7 @@ if document != None:
   with open('templates/epub/steps.tpl', 'r') as template_file, open('templates/epub/step.tpl', 'r') as template_file_1, open('templates/epub/step_noimages.tpl', 'r') as template_file_2:
     cSteps_template = template_file.read()
 
-    if '--no-images' in sys.argv:
+    if args.no_images:
       cStep_template = template_file_2.read()
       cStep_parts = [
         cStep_template.format(
@@ -186,7 +193,10 @@ body {
 
   book.spine = ['nav', cIntro, cIngredients, cSteps]
 
-  filename = re.sub(r'[\W]+', '', unidecode.unidecode(document['title']).replace(' ', '_')).lower() + '.epub'
+  if args.out == None:
+    filename = re.sub(r'[\W]+', '', unidecode.unidecode(document['title']).replace(' ', '_')).lower() + '.epub'
+  else:
+    filename = args.out
   epub.write_epub(filename, book, {})
   print("Wrote", filename)
 else:
