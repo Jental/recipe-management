@@ -112,5 +112,6 @@
     ],
     "title" : "Абрикосовый тарт с розмариновым сахаром",
     "category" : "desserts",
-    "cooked" : "true"
+    "cooked" : "true",
+    "mark" : "4"
 }
